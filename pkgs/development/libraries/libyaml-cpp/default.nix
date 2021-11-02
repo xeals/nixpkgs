@@ -22,7 +22,15 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ cmake ];
 
-  cmakeFlags = [ "-DBUILD_SHARED_LIBS=ON" "-DYAML_CPP_BUILD_TESTS=OFF" ];
+  cmakeFlags = [
+    "-DBUILD_SHARED_LIBS=ON"
+    "-DYAML_CPP_BUILD_TESTS=OFF"
+    # the cmake package does not handle absolute CMAKE_INSTALL_INCLUDEDIR correctly
+    # (setting it to an absolute path causes include files to go to $out/$out/include,
+    #  because the absolute path is interpreted with root at $out).
+    "-DCMAKE_INSTALL_INCLUDEDIR=include"
+    "-DCMAKE_INSTALL_LIBDIR=lib"
+  ];
 
   meta = with lib; {
     inherit (src.meta) homepage;
