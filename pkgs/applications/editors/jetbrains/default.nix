@@ -5,6 +5,7 @@
 , autoPatchelfHook
 , libdbusmenu
 , vmopts ? null
+, channel ? "release"
 }:
 
 with lib;
@@ -16,18 +17,32 @@ let
   inherit (stdenv.hostPlatform) system;
 
   versions = builtins.fromJSON (readFile (./versions.json));
-  versionKey = if stdenv.isLinux then "linux" else system;
-  products = versions.${versionKey} or (throw "Unsupported system: ${system}");
+  channelVersions = versions.${channel} or (throw "Unknown channel: ${channel}");
+  platformKey = if stdenv.isLinux then "linux" else system;
+  products = channelVersions.${platformKey} or (throw "Unsupported system: ${system}");
 
   package = if stdenv.isDarwin then ./darwin.nix else ./linux.nix;
   mkJetBrainsProduct = callPackage package { inherit vmopts; };
 
+  isStable = channel == "release";
+
+  pnameSuffix = if isStable then "" else "-${channel}";
+
+  productSuffix = version:
+    if isStable
+    then ""
+    else " ${builtins.replaceStrings ["Beta"] ["EAP"] version}";
+
+  packageName = name:
+    if isStable
+    then name
+    else "${name}-${channel}";
+
   # Sorted alphabetically
 
-  buildClion = { pname, version, src, license, description, wmClass, ... }:
+  buildClion = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
-      inherit pname version src wmClass jdk;
-      product = "CLion";
+      inherit pname version src wmClass jdk product;
       meta = with lib; {
         homepage = "https://www.jetbrains.com/clion/";
         inherit description license platforms;
@@ -65,10 +80,9 @@ let
       '';
     });
 
-  buildDataGrip = { pname, version, src, license, description, wmClass, ... }:
+  buildDataGrip = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
-      inherit pname version src wmClass jdk;
-      product = "DataGrip";
+      inherit pname version src wmClass jdk product;
       meta = with lib; {
         homepage = "https://www.jetbrains.com/datagrip/";
         inherit description license platforms;
@@ -81,10 +95,9 @@ let
       };
     });
 
-  buildGoland = { pname, version, src, license, description, wmClass, ... }:
+  buildGoland = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
-      inherit pname version src wmClass jdk;
-      product = "Goland";
+      inherit pname version src wmClass jdk product;
       meta = with lib; {
         homepage = "https://www.jetbrains.com/go/";
         inherit description license platforms;
@@ -150,10 +163,9 @@ let
       };
     });
 
-  buildPhpStorm = { pname, version, src, license, description, wmClass, ... }:
+  buildPhpStorm = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
       inherit pname version src wmClass jdk;
-      product = "PhpStorm";
       meta = with lib; {
         homepage = "https://www.jetbrains.com/phpstorm/";
         inherit description license platforms;
@@ -191,10 +203,9 @@ let
       };
     });
 
-  buildRider = { pname, version, src, license, description, wmClass, ... }:
+  buildRider = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
-      inherit pname version src wmClass jdk;
-      product = "Rider";
+      inherit pname version src wmClass jdk product;
       meta = with lib; {
         homepage = "https://www.jetbrains.com/rider/";
         inherit description license platforms;
@@ -216,10 +227,9 @@ let
       '');
     });
 
-  buildRubyMine = { pname, version, src, license, description, wmClass, ... }:
+  buildRubyMine = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
-      inherit pname version src wmClass jdk;
-      product = "RubyMine";
+      inherit pname version src wmClass jdk product;
       meta = with lib; {
         homepage = "https://www.jetbrains.com/ruby/";
         inherit description license platforms;
@@ -228,10 +238,9 @@ let
       };
     });
 
-  buildWebStorm = { pname, version, src, license, description, wmClass, ... }:
+  buildWebStorm = { pname, version, src, license, description, wmClass, product, ... }:
     (mkJetBrainsProduct {
       inherit pname version src wmClass jdk;
-      product = "WebStorm";
       meta = with lib; {
         homepage = "https://www.jetbrains.com/webstorm/";
         inherit description license platforms;
@@ -255,8 +264,9 @@ in
 {
   # Sorted alphabetically
 
-  clion = buildClion rec {
-    pname = "clion";
+  ${packageName "clion"} = buildClion rec {
+    pname = "clion${pnameSuffix}";
+    product = "CLion${productSuffix version}";
     version = products.clion.version;
     description  = "C/C++ IDE. New. Intelligent. Cross-platform";
     license = lib.licenses.unfree;
@@ -268,8 +278,9 @@ in
     update-channel = products.clion.update-channel;
   };
 
-  datagrip = buildDataGrip rec {
-    pname = "datagrip";
+  ${packageName "datagrip"} = buildDataGrip rec {
+    pname = "datagrip${pnameSuffix}";
+    product = "DataGrip${productSuffix version}";
     version = products.datagrip.version;
     description = "Your Swiss Army Knife for Databases and SQL";
     license = lib.licenses.unfree;
@@ -281,8 +292,9 @@ in
     update-channel = products.datagrip.update-channel;
   };
 
-  goland = buildGoland rec {
-    pname = "goland";
+  ${packageName "goland"} = buildGoland rec {
+    pname = "goland${pnameSuffix}";
+    product = "Goland${productSuffix version}";
     version = products.goland.version;
     description = "Up and Coming Go IDE";
     license = lib.licenses.unfree;
@@ -294,9 +306,9 @@ in
     update-channel = products.goland.update-channel;
   };
 
-  idea-community = buildIdea rec {
-    pname = "idea-community";
-    product = "IntelliJ IDEA CE";
+  ${packageName "idea-community"} = buildIdea rec {
+    pname = "idea-community${pnameSuffix}";
+    product = "IntelliJ IDEA CE${productSuffix version}";
     version = products.idea-community.version;
     description = "Integrated Development Environment (IDE) by Jetbrains, community edition";
     license = lib.licenses.asl20;
@@ -308,9 +320,9 @@ in
     update-channel = products.idea-community.update-channel;
   };
 
-  idea-ultimate = buildIdea rec {
-    pname = "idea-ultimate";
-    product = "IntelliJ IDEA";
+  ${packageName "idea-ultimate"} = buildIdea rec {
+    pname = "idea-ultimate${pnameSuffix}";
+    product = "IntelliJ IDEA${productSuffix version}";
     version = products.idea-ultimate.version;
     description = "Integrated Development Environment (IDE) by Jetbrains, requires paid license";
     license = lib.licenses.unfree;
@@ -322,8 +334,9 @@ in
     update-channel = products.idea-ultimate.update-channel;
   };
 
-  mps = buildMps rec {
-    pname = "mps";
+  # MPS does not have an EAP channel.
+  ${if isStable then "mps" else null} = buildMps rec {
+    pname = "mps${pnameSuffix}";
     product = "MPS ${products.mps.version}";
     version = products.mps.version;
     description = "Create your own domain-specific language";
@@ -336,8 +349,9 @@ in
     update-channel = products.mps.update-channel;
   };
 
-  phpstorm = buildPhpStorm rec {
-    pname = "phpstorm";
+  ${packageName "phpstorm"} = buildPhpStorm rec {
+    pname = "phpstorm${pnameSuffix}";
+    product = "PhpStorm${productSuffix version}";
     version = products.phpstorm.version;
     description = "Professional IDE for Web and PHP developers";
     license = lib.licenses.unfree;
@@ -349,9 +363,9 @@ in
     update-channel = products.phpstorm.update-channel;
   };
 
-  pycharm-community = buildPycharm rec {
-    pname = "pycharm-community";
-    product = "PyCharm CE";
+  ${packageName "pycharm-community"} = buildPycharm rec {
+    pname = "pycharm-community${pnameSuffix}";
+    product = "PyCharm CE${productSuffix version}";
     version = products.pycharm-community.version;
     description = "PyCharm Community Edition";
     license = lib.licenses.asl20;
@@ -363,9 +377,9 @@ in
     update-channel = products.pycharm-community.update-channel;
   };
 
-  pycharm-professional = buildPycharm rec {
-    pname = "pycharm-professional";
-    product = "PyCharm";
+  ${packageName "pycharm-professional"} = buildPycharm rec {
+    pname = "pycharm-professional${pnameSuffix}";
+    product = "PyCharm${productSuffix version}";
     version = products.pycharm-professional.version;
     description = "PyCharm Professional Edition";
     license = lib.licenses.unfree;
@@ -377,8 +391,9 @@ in
     update-channel = products.pycharm-professional.update-channel;
   };
 
-  rider = buildRider rec {
-    pname = "rider";
+  ${packageName "rider"} = buildRider rec {
+    pname = "rider${pnameSuffix}";
+    product = "Rider${productSuffix version}";
     version = products.rider.version;
     description = "A cross-platform .NET IDE based on the IntelliJ platform and ReSharper";
     license = lib.licenses.unfree;
@@ -390,8 +405,9 @@ in
     update-channel = products.rider.update-channel;
   };
 
-  ruby-mine = buildRubyMine rec {
-    pname = "ruby-mine";
+  ${packageName "ruby-mine"} = buildRubyMine rec {
+    pname = "ruby-mine${pnameSuffix}";
+    product = "RubyMine${productSuffix version}";
     version = products.ruby-mine.version;
     description = "The Most Intelligent Ruby and Rails IDE";
     license = lib.licenses.unfree;
@@ -403,8 +419,9 @@ in
     update-channel = products.ruby-mine.update-channel;
   };
 
-  webstorm = buildWebStorm rec {
-    pname = "webstorm";
+  ${packageName "webstorm"} = buildWebStorm rec {
+    pname = "webstorm${pnameSuffix}";
+    product = "WebStorm${productSuffix version}";
     version = products.webstorm.version;
     description = "Professional IDE for Web and JavaScript development";
     license = lib.licenses.unfree;

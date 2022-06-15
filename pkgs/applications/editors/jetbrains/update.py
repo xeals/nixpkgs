@@ -18,7 +18,7 @@ def one_or_more(x):
     return x if isinstance(x, list) else [x]
 
 
-def download_channels():
+def download_channel_updates():
     logging.info("Checking for updates from %s", updates_url)
     updates_response = requests.get(updates_url)
     updates_response.raise_for_status()
@@ -49,13 +49,13 @@ def download_sha256(url):
     return download_response.content.decode('UTF-8').split(' ')[0]
 
 
-channels = download_channels()
+channel_updates = download_channel_updates()
 
 
-def update_product(name, product):
+def update_product(description, product):
     update_channel = product["update-channel"]
-    logging.info("Updating %s", name)
-    channel = channels.get(update_channel)
+    logging.info("Updating %s", description)
+    channel = channel_updates.get(update_channel)
     if channel is None:
         logging.error("Failed to find channel %s.", update_channel)
         logging.error("Check that the update-channel in %s matches the name in %s", versions_file_path, updates_url)
@@ -80,21 +80,18 @@ def update_product(name, product):
                 logging.info("Already at the latest version %s with build number %s.", new_version, new_build_number)
         except Exception as e:
             logging.exception("Update failed:", exc_info=e)
-            logging.warning("Skipping %s due to the above error.", name)
+            logging.warning("Skipping %s due to the above error.", description)
             logging.warning("It may be out-of-date. Fix the error and rerun.")
-
-
-def update_products(products):
-    for name, product in products.items():
-        update_product(name, product)
 
 
 with open(versions_file_path, "r") as versions_file:
     versions = json.load(versions_file)
 
-for products in versions.values():
-    update_products(products)
+for channel, platforms in versions.items():
+    for platform, products in platforms.items():
+        for name, product in products.items():
+            update_product(f'{name} ({channel} {platform})', product)
 
 with open(versions_file_path, "w") as versions_file:
-    json.dump(versions, versions_file, indent=2)
+    json.dump(versions, versions_file, indent=2, sort_keys=True)
     versions_file.write("\n")
